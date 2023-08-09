@@ -47,7 +47,7 @@ wget 'https://raw.githubusercontent.com/jcdubacq/jcdubacq.github.io/main/certbot
 chmod +x /root/lib/certbot/bmn-jcdubacq-*.sh
 
 # Run the first certification process and answer all questions truthfully
-certbot certonly --manual --preferred-challenges=dns --manual-auth-hook /root/lib/certbot/bmn-jcdubacq-challenge.sh --manual-cleanup-hook /root/lib/certbot/bmn-jcdubacq-cleanup.sh -d example.com -d mail.example.com
+certbot certonly --manual --preferred-challenges=dns --manual-auth-hook /root/lib/certbot/certbot-bmn-jcdubacq-challenge.sh --manual-cleanup-hook /root/lib/certbot/certbot-bmn-jcdubacq-cleanup.sh -d example.com -d mail.example.com
 ```
 
 That's about it. If all is correct, a few minutes between each challenge should elapse (4-8 minutes when I tried), and you should get certificates in `/etc/letsencrypt/live/example.com/` (of course, replace `example.com` with your own domain everywhere, unless you are the owner of `example.com` yourself)[^1].

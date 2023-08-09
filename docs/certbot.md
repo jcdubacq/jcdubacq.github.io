@@ -15,11 +15,18 @@ Fortunately, it is possible to ask the `certbot` program to issue the challenges
 
 So I built three scripts:
 
-  * Challenge script
-  * Cleanup script (executed automatically after challenge)
-  * Global cleanup (tries to remove all former challenges, to be executed manually in case something goes wrong)
+  * [Challenge script](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/certbot-bmn/certbot-jcdubacq-challenge.sh)
+  * [Cleanup script](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/certbot-bmn/certbot-jcdubacq-cleanup.sh) (executed automatically after challenge)
+  * [Global cleanup](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/certbot-bmn/certbot-jcdubacq-globalcleanup.sh) (tries to remove all former challenges, to be executed manually in case something goes wrong)
 
-The main script (challenge) is
+The main script (challenge) is doing the following:
+
+  * Sets up basic variables (access to BookMyName account, logs, cleanup)
+  * Deal with the generic subdomain case by creating a DOMAIN variable which is the challenged domain or the base domain in case of generic subdomain
+  * Inserts the DNS record using wget
+  * Waits till the record is visible in some public DNS server (`8.8.8.8` is a public DNS server operated by Google, there are others).
+  * Cares to not go beyond 40 minutes of waiting time (my personal test sometimes reached 9 minutes, so that should be enough).
+  * Logs all of this, and exits.
 
 For a new machine, I need to issue the following:
 
@@ -38,5 +45,12 @@ chmod +x /root/lib/certbot/bmn-jcdubacq-*.sh
 
 # Run the first certification process and answer all questions truthfully
 certbot certonly --manual --preferred-challenges=dns --manual-auth-hook /root/lib/certbot/bmn-jcdubacq-challenge.sh --manual-cleanup-hook /root/lib/certbot/bmn-jcdubacq-cleanup.sh -d example.com -d mail.example.com
+```
 
-'''
+That's about it. If all is correct, a few minutes between each challenge should elapse (4-8 minutes when I tried), and you should get certificates in `/etc/letsencrypt/live/example.com/` (of course, replace `example.com` with your own domain everywhere, unless you are the owner of `example.com` yourself)[^1].
+
+By default, a cron job/systemd timer is installed when installing certbot, which will try to renew the certificate as often as needed (twice a day, which may be too frequently, but monthly is certainly not frequent enough; I trusted the Debian maintainers to do the right thing here). `certbot renew` is the command that should be issued by your cron job.
+
+Note that you can add more subdomains by issuing (as root) `certbot --expand newsubdomain.example.com`.
+
+[^1]: This shouldn't happen because of [RFC2606](https://www.rfc-editor.org/rfc/rfc2606.txt).

@@ -15,9 +15,9 @@ Fortunately, it is possible to ask the `certbot` program to issue the challenges
 
 So I built three scripts:
 
-  * [Challenge script](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/certbot-bmn/certbot-jcdubacq-challenge.sh)
-  * [Cleanup script](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/certbot-bmn/certbot-jcdubacq-cleanup.sh) (executed automatically after challenge)
-  * [Global cleanup](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/certbot-bmn/certbot-jcdubacq-globalcleanup.sh) (tries to remove all former challenges, to be executed manually in case something goes wrong)
+  * [Challenge script](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/certbot-bmn/certbot-bmn-jcdubacq-challenge.sh)
+  * [Cleanup script](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/certbot-bmn/certbot-bmn-jcdubacq-cleanup.sh) (executed automatically after challenge)
+  * [Global cleanup](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/certbot-bmn/certbot-bmn-jcdubacq-globalcleanup.sh) (tries to remove all former challenges, to be executed manually in case something goes wrong)
 
 The main script (challenge) is doing the following:
 
@@ -41,6 +41,9 @@ echo 'BMNUSER="Jwhatever"' > /root/lib/certbot/secrets/bmnpasswords.sh
 echo 'BMNPASS="wh4tEver"' >> /root/lib/certbot/secrets/bmnpasswords.sh
 
 # Install the three utilies in /root/lib/certbot
+wget 'https://raw.githubusercontent.com/jcdubacq/jcdubacq.github.io/main/certbot-bmn/certbot-bmn-jcdubacq-challenge.sh'
+wget 'https://raw.githubusercontent.com/jcdubacq/jcdubacq.github.io/main/certbot-bmn/certbot-bmn-jcdubacq-cleanup.sh'
+wget 'https://raw.githubusercontent.com/jcdubacq/jcdubacq.github.io/main/certbot-bmn/certbot-bmn-jcdubacq-globalcleanup.sh'
 chmod +x /root/lib/certbot/bmn-jcdubacq-*.sh
 
 # Run the first certification process and answer all questions truthfully

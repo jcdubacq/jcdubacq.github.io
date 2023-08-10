@@ -35,6 +35,7 @@ For a new machine, I need to issue the following:
 apt install certbot bind9-dnsutils
 mkdir -p /root/lib/certbot/secrets
 chmod 700 /root/lib/certbot/secrets
+cd /root/lib/certbot
 
 # Set BMNUSER and BMNPASS in shell-script syntax in /root/lib/certbot/secrets/bmnpasswords.sh
 echo 'BMNUSER="Jwhatever"' > /root/lib/certbot/secrets/bmnpasswords.sh
@@ -44,7 +45,7 @@ echo 'BMNPASS="wh4tEver"' >> /root/lib/certbot/secrets/bmnpasswords.sh
 wget 'https://raw.githubusercontent.com/jcdubacq/jcdubacq.github.io/main/certbot-bmn/certbot-bmn-jcdubacq-challenge.sh'
 wget 'https://raw.githubusercontent.com/jcdubacq/jcdubacq.github.io/main/certbot-bmn/certbot-bmn-jcdubacq-cleanup.sh'
 wget 'https://raw.githubusercontent.com/jcdubacq/jcdubacq.github.io/main/certbot-bmn/certbot-bmn-jcdubacq-globalcleanup.sh'
-chmod +x /root/lib/certbot/bmn-jcdubacq-*.sh
+chmod +x /root/lib/certbot/certbot-bmn-jcdubacq-*.sh
 
 # Run the first certification process and answer all questions truthfully
 certbot certonly --manual --preferred-challenges=dns --manual-auth-hook /root/lib/certbot/certbot-bmn-jcdubacq-challenge.sh --manual-cleanup-hook /root/lib/certbot/certbot-bmn-jcdubacq-cleanup.sh -d example.com -d mail.example.com

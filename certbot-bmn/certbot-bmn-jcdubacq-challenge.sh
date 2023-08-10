@@ -4,7 +4,7 @@
 BMNUSER="Jwhatever"
 BMNPASS="wh4tEver"
 
-. /root/lib/certbot/bmnpasswords.sh
+. /root/lib/certbot/secrets/bmnpasswords.sh
 
 DNSTESTSERVER=8.8.8.8
 CLEANUP="/root/lib/certbot/cleanuplist.txt"

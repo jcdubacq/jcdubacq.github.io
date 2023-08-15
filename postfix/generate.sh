@@ -47,7 +47,7 @@ postconf smtpd_tls_session_cache_database='btree:${data_directory}/smtp_scache'
 postconf smtpd_tls_security_level=may
 
 # STMPD restrictions
-postconf smtpd_delay_open_until_valid_rctp=no
+postconf smtpd_delay_open_until_valid_rcpt=no
 
 
 for x in client helo sender; do
@@ -57,7 +57,7 @@ done
 
 postconf "smtpd_helo_restrictions=check_helo_access=cdb:helo_whitelist reject_invalid_helo_hostname reject_non_fqdn_helo_hostname reject_unknown_helo_hostname"
 postconf "smtpd_sender_restrictions=check_sender_access=cdb:sender_whitelist reject_non_fqdn_sender reject_unknown_sender_domain"
-postconf "smtp_recipient_restrictions=check_helo_access=cdb:helo_whitelist reject_non_fqdn_recipient reject_unknown_recipient_domain reject_unknown_sender_domain reject_unlisted_sender reject_unauth_destination"
+postconf "smtpd_recipient_restrictions=check_helo_access=cdb:helo_whitelist reject_non_fqdn_recipient reject_unknown_recipient_domain reject_unknown_sender_domain reject_unlisted_sender reject_unauth_destination"
 
 CLIENTBASE="smtpd_client_restrictions=permit_mynetworks check_client_access=cdb:client_whitelist reject_unauth_pipelining"
 if [ "$SAFETY" = 1 ]; then

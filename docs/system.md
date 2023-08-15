@@ -10,7 +10,7 @@ Throughout this list, `jcdubacq` is my non-root login. Replace with the most app
 6. Reboot
 7. `dpkg-reconfigure locales` and select the correct ones (I always leave US locale, for tests).
 8. Configure the network with the new MAC address (`ip a`), then renew the DHCP lease (`ifdown enp0s3; ifup enp0s3`). Also, because of a bug, `apt install ethtool; ethtool -K enp0s3 tx off rx off`. 
-9. Setup [sudo](https://xkcd.com/149/) and review settings (`adduser mainuser sudo` and `%sudo	ALL=(ALL:ALL) NOPASSWD: ALL` for my personal taste).
+9. Setup [sudo](https://xkcd.com/149/) and review settings (`adduser jcdubacq sudo` and `%sudo	ALL=(ALL:ALL) NOPASSWD: ALL` for my personal taste).
 10. Test ssh connection as normal user. `mkdir ~/.ssh;touch ~/.ssh/authorized_keys; chmod 700 ~/.ssh` and set up `authorized_keys` by copying a public key into it. Logout, and test connection is now with key exchange. Then issue `sudo passwd -l jcdubacq` (obviously, your own account). Test connection again. `sudo passwd -l root` can also be done, once you are confident SSH conection and sudo is working.
 11. Because I like it this way: I uncomment the following lines in `/etc/adduser.conf`:
 ```

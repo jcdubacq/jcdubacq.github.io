@@ -391,22 +391,39 @@ The account management script was mentioned above. The [account script](account.
 
 ## Mail emission (outgoing)
 
-```mermaid
-sequenceDiagram
-    participant Emitter
-    participant mail.example.com
-    participant relay.isp.com
-    participant Destination
-    Emitter->>mail.example.com: submission (SASL auth with "emitter@example.com")
-    mail.example.com-->>Emitter: accepts email
-    mail.example.com->>relay.isp.com: submission (SASL auth with "account@isp.com"
-    Note right of relay.isp.com: hopefully doesn't check mismatch between<br/>SASL login (account@isp.com)<br/>envelope From (emitter@example.com)
-    relay.isp.com-->>mail.example.com: accepts email
-    relay.isp.com->>Destination: generic smtp (no authentication)
-    Destination->mail.example.com: checks that SPF records of mail.example.com
-    mail.example.com-->Destination: has listed relay.isp.com SMTP servers in the SPF records for example.com
-    Destination-->>relay.isp.com: accepts mail (final delivery)
-```
+Please see the graphic to understand the
+[transmission of outgoing email **with relay for our domains**](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/docs/postfix-graphics.md#outgoing-smtp-with-relay),
+and the next one to understand the
+[transmission of outgoing email **without relay for our domains**](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/docs/postfix-graphics.md#outgoing-smtp-without-relay). A
+third graphic underlines what happens for
+[outgoing email where the sender is not from our domains](https://github.com/jcdubacq/jcdubacq.github.io/blob/main/docs/postfix-graphics.md#relaying-smtp)
+(this shouldn't happen in many systems, but is the goal 4.2 of my design
+needs).
+
+In the first graphic, the first exchange (Emitter⮂mail.example.com) has
+already been done. The second exchange with relay
+(mail.example.com⮂relay.isp.com) will be dealt with here.
+
+The second graphic is quite similar, but the problem is that the other checks made at the last exchange (before *accepts mail*) can lead to a refusal. The various reasons in my case are:
+
+  * Reverse DNS is OK (I have a PTR record), but the lookup of this PTR
+    record in non-existent
+  * My IP never changed (well, when I switched from DSL line to optic
+    fiber, but at this point I really changed the network I used), but
+    some blocking lists consider this is part of a dynamic IP allocation
+    range. This may be true (I just never changed, that doesn't mean
+    it's *static*). And some ISPs block
+    
+Remember the discussion I made in **smtp restrictions** above? Well,
+that's the same one, but reversed.
+
+Obviously, for the domains I am responsible for, I should use the *direct SMTP approach*. That's the essence of self-hosting. But it fails, and it fails too much. Since I care more about my emails arriving than some principles I cannot uphold anyway, I will use relaying to my ISP. I know that if I respect some rules, it will happily accept my emails on the submission port (with authentication). Without authentication, it accepts (as it should) only the emails it is the final destination of.
+
+If one doesn't have such a relay available, I know some are available
+either free (for a low traffic: I found one in three minutes for 200
+emails/day) or for a fee.
+
+The third graphic is, in fact, what happens when we *relay* a mail. As per goal 4.2, we want to do it only if we know who we are relaying, and are able to contact in his stead the correct provider. This means registered addresses, with password to the ISP. If we were to use a generic smtp service, the delivery may fail for many reasons, but the first is that either the domain declares SPF records and we won't be in it (so all sites checking SPF policy will refuse our mails), or there is no SPF (and nowadays, it's the site that won't be able to deliver mails to major mail providers).
 
 
 TODO

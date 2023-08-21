@@ -1,0 +1,315 @@
+#!/bin/sh
+MAINDOMAIN=example.com
+OTHERDOMAINS="example.net example.org"
+# This should be the name in the certficate
+MAILSERVER=mail
+MBOXUSER=mail
+SASLAUTHDPASSWD=/etc/saslauthd_virtual_passwd.new
+# Depends on your letsencrypt setup, maybe juste .../${REALDOMAIN}
+CERTFICATEDIR=/etc/letsencrypt/live/${MAILSERVER}.${REALDOMAIN}
+REALHOST=$(hostname)
+REALDOMAIN=$(domainname)
+if [ -f "/root/lib/postfix/secrets/setup" ]; then
+    . /root/lib/postfix/secrets/setup
+fi
+
+FETCHMAILRCDEST=/etc/fetchmailrc
+FETCHMAILRC=${FETCHMAILRCDEST}.new
+VMAILBOX=$(postconf -h virtual_mailbox_maps|cut -f2- -d:)
+VMAILHOME=$(postconf -h virtual_mailbox_base|cut -f2- -d:)
+SASLPASSWD=$(postconf -h smtp_sasl_password_maps|cut -f2- -d:)
+VMAILALIASES=$(postconf -h virtual_alias_maps|cut -f2- -d:)
+FIRSTRELAY=
+SOURCE=/root/lib/postfix/secrets/accounts
+UID=$(getent passwd $MBOXUSER|cut -f3 -d:)
+GID=$(getent passwd $MBOXUSER|cut -f4 -d:)
+
+
+# Testing
+SASLPASSWD=""
+FETCHMAILRC=""
+VMAILHOME="${VMAILHOME}-test"
+VMAILBOX="${VMAILBOX}"
+
+LOGLEVEL=1
+
+while [ "$1" = "-q" ]; do
+    LOGLEVEL=$((LOGLEVEL+1))
+    shift
+done
+
+log() {
+    LEVEL="$1"
+    shift
+    if [ "$LOGLEVEL" -lt "$LEVEL" ]; then
+        echo "$@"
+    fi
+}
+
+doskip() {
+    log 2 "----"
+}
+doreal() {
+    addtopamdb "$1" "$2"
+    if [ -n "$VMAILBOX" ]; then
+        addtocourierdb "$1" "$2"
+        addtosasldb "$1" "$2"
+    fi
+}
+dovirtual() {
+    if [ -n "$VMAILBOX" ]; then
+        addtocourierdb "$1" "$2"
+        addtosasldb "$1" "$2"
+    fi
+}
+dodead() {
+    removefrompamdb "$1"
+    if [ -n "$VMAILBOX" ]; then
+        removefromcourierdb "$1"
+        removefromsasldb "$1"
+    fi
+}
+dosmtp() {
+    return #XXX
+    login="$1"
+    passwd="$2"
+    line="$3"
+    morea=$(echo "$line"|cut -f4 -d:)
+    addtorelay "$1" "$2" "$morea"
+}
+dofetchimap() {
+    if [ -n "$FETCHMAILRC" ]; then
+        login="$1"
+        passwd="$2"
+        line="$3"
+        morea=$(echo "$line"|cut -f4 -d:)
+        moreb=$(echo "$line"|cut -f5 -d:)
+        echo 'poll '"$morea"' tracepolls proto IMAP auth password' >> $FETCHMAILRC
+        echo '  user '"$login"' password '"'$passwd'"' is '"$moreb"' smtpaddress ${MAINDOMAIN}' >> $FETCHMAILRC
+        fgp=$(openssl s_client -connect $morea:993 -showcerts -servername $morea < /dev/null 2>/dev/null   | openssl x509 -in /dev/stdin -md5 -noout -fingerprint| cut -f2 -d=)
+        echo '  ssl sslcertck sslfingerprint '"'$fgp'" >> $FETCHMAILRC
+    fi
+}
+
+# --------------------------------------------------
+
+addtopamdb() {
+    login="$1"
+    passwd="$2"
+    log 2 "Setting up real user $login"
+    if getent passwd "$login" > /dev/null; then
+        log 2 "User $login already exists in pamdb"
+    else
+        log 2 "Creating user $login in pamdb"
+        adduser "$login" --disabled-password
+    fi
+    log 2 "Updating $login pamdb password"
+    echo "${login}:${passwd}"|chpasswd
+}
+removefrompamdb() {
+    if getent passwd "$login" > /dev/null; then
+        log 2 "Removing user $login from pamdb"
+        deluser --remove-home "$login"
+    else
+        log 2 "User $login already removed from pamdb"
+    fi
+}
+
+# --------------------------------------------------
+
+addtocourierdb() {
+    login="$1"
+    passwd="$2"
+    if [ $(userdb "$login" -show|wc -l) -gt 0 ]; then
+        log 2 "User $login already exists in courierdb"
+    else
+        log 2 "Creating user $login in courierdb"
+    fi
+    userdb "$login" set uid=${UID} gid=${GID} mail="${VMAILHOME}/$login"/Maildir home="${VMAILHOME}/$login"
+    if [ ! -d "${VMAILHOME}/${login}/Maildir" ]; then
+        log 2 "Creating mail folders for $login"
+        mkdir -p "${VMAILHOME}/${login}"
+        cd "${VMAILHOME}/${login}"
+        maildirmake.courier Maildir
+        find . -print0 | xargs -0 chown ${UID}:${GID}
+    fi
+    log 2 "Updating $login courierdb password"
+    echo "${passwd}"|userdbpw -md5 | userdb "$login" set systempw
+    log 2 "Adding $login as a vmailbox"
+    echo "${login}@${MAINDOMAIN} ${login}/Maildir/" >> $VMAILBOX
+}
+removefromcourierdb() {
+    if [ $(userdb "$login" -show|wc -l) -lt 1 ]; then
+        log 2 "Removing user $login from courierdb"
+        userdb "$login" del
+    else
+        log 2 "User $login already removed from courierdb"
+    fi
+}
+
+# --------------------------------------------------
+
+addtosasldb() {
+    login="$1"
+    passwd="$2"
+    log 2 "Updating $login sasldb password"
+    (echo -n "${login}@${MAINDOMAIN}:";echo "$passwd" | mkpasswd -s -m sha256crypt) >> ${SASLAUTHDPASSWD}
+    # echo "$passwd"|saslpasswd2 -c -u ${MAINDOMAIN} $login
+}
+removefromsasldb() {
+    login="$1"
+    log 2 "Removing $login from sasldb"
+    # saslpasswd2 -d -u ${MAINDOMAIN} $login
+}
+
+# --------------------------------------------------
+
+addtorelay() {
+    if [ -n "$SASLPASSWD" ]; then
+        echo "coucou $1 $2 $3"
+        login="$1"
+        passwd="$2"
+        relay="$3"
+        #    echo -ne '\000'"${login}\000${passwd}"|openssl base64
+        z=$( ( echo "EHLO ${MAILSERVER}.${MAINDOMAIN}"
+               sleep 1
+               echo 'AUTH PLAIN'
+               sleep 1
+               echo -ne '\000'"${login}\000${passwd}"|openssl base64
+               sleep 1)|openssl s_client -connect $relay:587 -servername $relay -starttls smtp 2>&1| grep ^235)
+        VALID=0
+        if [ -n "$z" ]; then VALID=1; else relay="_invalid_$relay"; fi
+        while grep -q "^.${relay}. " $SASLPASSWD; do
+            relay="X$relay"
+        done
+        if [ -z "$FIRSTRELAY" ]&&[ "$VALID" = 1 ]; then
+            FIRSTRELAY="$relay"
+        fi
+        echo "[$relay]:587 $login:$passwd" >> $SASLPASSWD
+    fi
+}
+
+# --------------------------------------------------
+
+beginvirtual() {
+    if [ -n "$VMAILBOX" ]; then
+        rm -f $VMAILBOX
+        touch $VMAILBOX
+        rm -f $VMAILALIASES
+        touch $VMAILALIASES
+    fi
+}
+closevirtual() {
+    log 2 "Closing virtual"
+    
+    #    makeuserdb
+    # for i in "" .dat .lock; do
+    #    chown courier:courier /etc/courier/userdb$i
+    #    chmod 600 /etc/courier/userdb$i
+    # done
+    if [ -n "$VMAILHOME" ]; then
+        find "$VMAILHOME" \( '!' -uid 1000 -o '!' -gid 100 \) -print0 |xargs -0 --no-run-if-empty chown 1000:100
+        postmap "$VMAILBOX"
+        postmap "$VMAILALIASES"
+    fi
+}
+
+beginsasl() {
+    log 2 "Beginning sasl"
+    rm -f $SASLAUTHDPASSWD
+    touch $SASLAUTHDPASSWD
+    chown root:shadow $SASLAUTHDPASSWD
+    chmod 610 $SASLAUTHDPASSWD
+}
+closesasl() {
+    log 2 "Closing sasl"
+    sh -x
+    mv "${SASLAUTHDPASSWD}" "${SASLAUTHDPASSWD%.new}"
+}
+
+beginfetch() {
+    if [ -n "$FETCHMAILRC" ]; then
+        log 2 "Beginning fetch"
+        echo 'set daemon 120
+set postmaster "${MBOXUSER}"
+set bouncemail
+set no spambounce
+set properties ""
+' > $FETCHMAILRC
+    fi
+}
+closefetch() {
+    if [ -n "$FETCHMAILRC" ]; then
+        log 2 "Closing fetch"
+        chmod 600  $FETCHMAILRC
+        mv $FETCHMAILRC $FETCHMAILRCDEST
+    fi
+}
+
+beginrelay() {
+    if [ -n "$SASLPASSWD" ]; then
+        rm -f "$SASLPASSWD"
+        touch "$SASLPASSWD"
+        chown root:root "$SASLPASSWD"
+        chmod 0600 "$SASLPASSWD"
+    fi
+}
+closerelay() {
+    if [ -n "$SASLPASSWD" ]; then
+        postmap "$SASLPASSWD"
+        chown root:root "$SASLPASSWD".db
+        chmod 0600 "$SASLPASSWD".db
+        log 3 "Relay: $FIRSTRELAY"
+    fi
+}
+
+# --------------------------------------------------
+
+if [ -f "${SOURCE}" ]; then
+    log 2 "Reading from ${SOURCE}"
+    exec 0< "${SOURCE}"
+fi
+
+
+
+beginvirtual
+beginfetch
+beginsasl
+beginrelay
+
+while read line; do
+    type=$(echo "$line"|cut -f1 -d:)
+    login=$(echo "$line"|cut -f2 -d:)
+    passwd=$(echo "$line"|cut -f3 -d:)
+    case $type in
+        real)
+            doreal "$login" "$passwd"
+            doskip
+            ;;
+        virtual)
+            dovirtual "$login" "$passwd"
+            doskip
+            ;;
+        dead)
+            dodead "$login" "$line"
+            doskip
+            ;;
+        fetchimaps)
+            dofetchimap "$login" "$passwd" "$line"
+            ;;
+        smtp)
+            dosmtp "$login" "$passwd" "$line"
+            ;;
+        *)
+            ;;
+    esac
+done
+
+closefetch
+closevirtual
+closesasl
+closerelay
+
+service postfix restart
+service postfix@- restart
+systemctl daemon-reload

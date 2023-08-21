@@ -53,7 +53,7 @@ sequenceDiagram
     mail.example.com->>Destination: generic smtp (no authentication)
     Destination->>otherexample.net: checks SPF records of otherexample.net
     otherexample.net-->>Destination: not listed, KO
-    Destination-->>relay.isp.com: refuses mail
+    Destination-->>mail.example.com: refuses mail
     option No, tries to forward to otherexample.net through generic smtp
     mail.example.com->>otherexample.net: generic smtp (no authentication)
     otherexample.net-->>mail.example.com: I am the sender, not the destination. KO.

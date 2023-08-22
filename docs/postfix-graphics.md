@@ -47,13 +47,14 @@ sequenceDiagram
     participant otherexample.net
     participant Destination
     Emitter->>mail.example.com: submission (SASL auth with "emitter@example.com") with sender someone@otherexample.net
-    critical Account details for address?
     mail.example.com-->>Emitter: accepts email
+    critical Account details for address?
     option No, tries to deliver (itself or through relay)
     mail.example.com->>Destination: generic smtp (no authentication)
     Destination->>otherexample.net: checks SPF records of otherexample.net
     otherexample.net-->>Destination: not listed, KO
     Destination-->>mail.example.com: refuses mail
+    Note right of mail.example.com: If there are no SPF records,<br/>it might work. Worked for years.
     option No, tries to forward to otherexample.net through generic smtp
     mail.example.com->>otherexample.net: generic smtp (no authentication)
     otherexample.net-->>mail.example.com: I am the sender, not the destination. KO.
